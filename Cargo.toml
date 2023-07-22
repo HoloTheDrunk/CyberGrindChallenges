@@ -1,0 +1,24 @@
+[package]
+name = "cyber_grind_challenges"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+actix = "0.13.0"
+actix-cors = "0.6.4"
+actix-web = "4.3.1"
+anyhow = "1.0.71"
+async-convert = "1.0.0"
+async-trait = "0.1.72"
+dotenv = "0.15.0"
+lazy_static = "1.4.0"
+log = "0.4.19"
+paste = "1.0.14"
+pretty_env_logger = "0.5.0"
+serde = { version = "1.0.171", features = ["derive"] }
+serde_json = "1.0.100"
+sqlx = { version = "0.7.0", features = ["runtime-tokio-rustls", "postgres", "macros"] }
+thiserror = "1.0.43"
+tokio = { version = "1.29.1", features = ["full"] }
