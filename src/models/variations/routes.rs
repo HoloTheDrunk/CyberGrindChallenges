@@ -1,34 +1,37 @@
-use super::Variation;
+use super::{dto::Weapons, Variation};
 
-use crate::models::model::Model;
+use crate::models::{
+    error::Error,
+    model::{Model, Protected},
+};
 
 use {
-    actix_web::{get, post, web, App, Error, HttpResponse, HttpServer, Responder},
+    actix_web::{get, post, web, App, HttpResponse, HttpServer, Responder},
     serde::Deserialize,
     serde_json::json,
 };
 
-#[derive(Deserialize)]
-pub struct Weapons {
-    pub weapons: Vec<String>,
-}
-
 impl TryInto<Variation> for Weapons {
-    type Error = ();
+    type Error = Error;
 
     fn try_into(self) -> Result<Variation, Self::Error> {
         let mut variation = Variation::default();
-        if self.weapons.iter().all(|weapon| variation.try_use(weapon)) {
-            Ok(variation)
-        } else {
-            Err(())
-        }
+        self.weapons
+            .iter()
+            .all(|weapon| variation.try_use(weapon))
+            .then_some(variation)
+            .ok_or(Error::InvalidWeapons)
     }
 }
 
 #[post("/variations")]
-async fn create(allowed: web::Json<Weapons>) -> impl Responder {
-    match allowed.into_inner().try_into() {
+async fn create(request: web::Json<Protected<Weapons>>) -> HttpResponse {
+    let weapons = match request.into_inner().validate() {
+        Ok(variations) => variations,
+        Err(error) => return error.into(),
+    };
+
+    match weapons.try_into() {
         Ok(variation) => {
             let insert_result = Variation::insert(&variation).await;
             match insert_result {
@@ -41,9 +44,7 @@ async fn create(allowed: web::Json<Weapons>) -> impl Responder {
                 }
             }
         }
-        Err(err) => {
-            HttpResponse::BadRequest().json(json!({ "error": "One of the weapons is invalid" }))
-        }
+        Err(err) => err.into(),
     }
 }
 

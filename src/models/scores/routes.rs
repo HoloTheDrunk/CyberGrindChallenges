@@ -1,10 +1,10 @@
 use serde_json::json;
 
-use super::Score;
+use super::{Score, dto::CreateScore};
 
 use crate::models::{
     model::Model,
-    variations::{routes::Weapons, Variation},
+    variations::Variation,
 };
 
 use {
@@ -26,14 +26,6 @@ async fn find_all() -> impl Responder {
 async fn find(id: web::Path<i64>) -> impl Responder {
     let score = Score::find(id.into_inner()).await.unwrap();
     HttpResponse::Ok().json(score)
-}
-
-#[derive(Deserialize)]
-struct CreateScore {
-    variation: Weapons,
-    steam_id: i64,
-    score: i32,
-    progress: i32,
 }
 
 #[post("/scores")]
