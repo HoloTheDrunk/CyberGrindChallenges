@@ -36,12 +36,8 @@ async fn create(request: web::Json<Protected<Weapons>>) -> HttpResponse {
             let insert_result = Variation::insert(&variation).await;
             match insert_result {
                 Ok(Some(id)) => HttpResponse::Ok().json(json!({ "id": id })),
-                Ok(None) => {
-                    HttpResponse::Conflict().json(json!({ "error": "Variation already exists" }))
-                }
-                Err(err) => {
-                    HttpResponse::InternalServerError().json(json!({ "error": format!("{err:?}") }))
-                }
+                Ok(None) => Error::Conflict.into(),
+                Err(err) => Error::Internal(err.to_string()).into(),
             }
         }
         Err(err) => err.into(),

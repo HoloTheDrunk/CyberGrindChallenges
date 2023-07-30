@@ -5,10 +5,11 @@ use super::{Score, dto::CreateScore};
 use crate::models::{
     model::Model,
     variations::Variation,
+    error::{Error, ItemType},
 };
 
 use {
-    actix_web::{get, post, web, App, Error, HttpResponse, HttpServer, Responder},
+    actix_web::{get, post, web, App, HttpResponse, HttpServer, Responder},
     async_convert::TryInto as AsyncTryInto,
     serde::Deserialize,
 };
@@ -23,31 +24,30 @@ async fn find_all() -> impl Responder {
 }
 
 #[get("/scores/{id}")]
-async fn find(id: web::Path<i64>) -> impl Responder {
-    let score = Score::find(id.into_inner()).await.unwrap();
-    HttpResponse::Ok().json(score)
+async fn find(id: web::Path<i64>) -> HttpResponse {
+    match Score::find(id.into_inner()).await {
+        Ok(score) => HttpResponse::Ok().json(score),
+        Err(_) => Error::NotFound(ItemType::Score).into()
+    }
 }
 
 #[post("/scores")]
-async fn create(score: web::Json<CreateScore>) -> impl Responder {
+async fn create(score: web::Json<CreateScore>) -> HttpResponse {
     let request = score.into_inner();
 
     let variation = match TryInto::<Variation>::try_into(request.variation) {
         Ok(variation) => variation,
-        Err(_) => return HttpResponse::BadRequest().json(json!({ "error": "invalid weapons" })),
+        Err(_) => return Error::InvalidWeapons.into(),
     };
 
     let variation_id = match Variation::match_weapons(&variation).await {
         Ok(Some(id)) => id,
-        Ok(None) => return HttpResponse::NotFound().json(json!({ "error": "unknown variation" })),
-        Err(err) => {
-            return HttpResponse::InternalServerError().json(json!({ "error": format!("{err:?}") }))
-        }
+        Ok(None) => return Error::NotFound(ItemType::Variation).into(),
+        Err(err) => return Error::Internal(err.to_string()).into(),
     };
 
     if request.steam_id < 0 || request.score < 0 || request.progress < 0 {
-        return HttpResponse::BadRequest()
-            .json(json!({ "error": "steam_id, score and progress should be positive" }));
+        return Error::UnvalidatedConstraints.into();
     }
 
     let score = Score {
@@ -59,7 +59,7 @@ async fn create(score: web::Json<CreateScore>) -> impl Responder {
     };
 
     let Ok(opt_score_id) = Score::insert(&score).await else { 
-        return HttpResponse::InternalServerError().json(json!({ "error": "failed to insert score" }))
+        return Error::Internal("failed to insert score".to_owned()).into();
     };
     
     let Some(score_id) = opt_score_id else {
